@@ -102,9 +102,9 @@ public class Auth {
 			this.refresh_token_expire_time = calendar.getTime();
 		}
 		
-		System.out.println(this.expire_time);
-		System.out.println(this.expires_in);
-		System.out.println(this.refresh_token_expires_in);
-		System.out.println(this.refresh_token_expire_time);
+//		System.out.println(this.expire_time);
+//		System.out.println(this.expires_in);
+//		System.out.println(this.refresh_token_expires_in);
+//		System.out.println(this.refresh_token_expire_time);
 	}
 }

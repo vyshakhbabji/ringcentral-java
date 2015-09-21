@@ -6,7 +6,7 @@ public class SDK {
 
 	Platform platform;
 
-	public SDK(String appKey, String appSecret, String server) {
+	public SDK(String appKey, String appSecret, Platform.Server server) {
 		platform = new Platform(appKey, appSecret, server);
 	}
 
