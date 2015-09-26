@@ -9,7 +9,9 @@ dependencies {
     testCompile 'junit:junit:4.11'
     compile 'org.apache.httpcomponents:httpclient:4.5'
     compile 'com.fasterxml.jackson.core:jackson-databind:2.6.0'
-    compile 'com.google.code.gson:gson:2.3.1'
+        compile 'com.google.code.gson:gson:2.3.1'
+     compile 'com.squareup.okhttp:okhttp:2.5.0'
+     compile 'org.json:json:20141113'
     
 
 }

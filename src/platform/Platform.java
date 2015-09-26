@@ -1,9 +1,13 @@
 package platform;
 
+import http.APIResponse;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -12,6 +16,8 @@ import java.util.Map.Entry;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.bind.DatatypeConverter;
+
+import okio.Buffer;
 
 import org.apache.http.Consts;
 import org.apache.http.HttpHeaders;
@@ -22,32 +28,40 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicNameValuePair;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.squareup.okhttp.Headers;
+import com.squareup.okhttp.MediaType;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Request.Builder;
+import com.squareup.okhttp.RequestBody;
+import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
+import com.squareup.okhttp.internal.http.HeaderParser;
 
 public class Platform {
 
 	public enum ContentTypeSelection {
-		FORM_TYPE_MARKDOWN("application/x-www-form-urlencoded"), JSON_TYPE_MARKDOWN(
-				"application/json"), MULTIPART_TYPE_MARKDOWN(
-						"multipart/mixed; boundary=Boundary_1_14413901_1361871080888");
-
-		private String value;
-
+		FORM_TYPE_MARKDOWN("application/x-www-form-urlencoded"), 
+		JSON_TYPE_MARKDOWN("application/json"), 
+		MULTIPART_TYPE_MARKDOWN(
+				"multipart/mixed; boundary=Boundary_1_14413901_1361871080888");
+		public MediaType value;
 		private ContentTypeSelection(String contentType) {
-			this.value = contentType;
+			this.value = MediaType.parse(contentType);
 		}
-
 	}
 
 	public enum Server {
-
 		PRODUCTION(
-				"https://platform.ringcentral.com"), SANDBOX("https://platform.devtest.ringcentral.com");
+				"https://platform.ringcentral.com"), 
+				SANDBOX("https://platform.devtest.ringcentral.com");
 		private String value;
 
 		private Server(String url) {
@@ -60,8 +74,14 @@ public class Platform {
 	public String appSecret;
 	Auth auth;
 	final String authURL = "/restapi/oauth/token";
-
+	private  HeaderParser headers  ;
 	public Server server;
+	Response response;
+	Request request;
+	
+	StackTraceElement l = new Exception().getStackTrace()[0];
+	
+
 
 	public Platform(String appKey, String appSecret, Server server) {
 		super();
@@ -71,47 +91,91 @@ public class Platform {
 		this.auth = new Auth();
 	}
 
-	public void authCall(List<NameValuePair> body) {
-
-		HttpClient client = new DefaultHttpClient();
-		HttpPost post = new HttpPost(server.value + authURL);
-		post.setHeader(HttpHeaders.AUTHORIZATION, "Basic "
-				+ encodeAPICredentialsToBase64());
-		post.setHeader(HttpHeaders.CONTENT_TYPE,
-				ContentTypeSelection.FORM_TYPE_MARKDOWN.value);
-		post.setEntity(new UrlEncodedFormEntity(body, Consts.UTF_8));
-
-		HttpResponse response = null;
+	protected String createBodyString(HashMap<String, String> body, ContentTypeSelection type) {
+		String bodyString = "";
+		MediaType mediaType = type.value;
 		try {
-			response = client.execute(post);
-			if (response.getStatusLine().getStatusCode() == 200) {
-				BufferedReader rd = new BufferedReader(new InputStreamReader(
-						response.getEntity().getContent()));
-				StringBuffer result = new StringBuffer();
-				String line = "";
-				while ((line = rd.readLine()) != null) {
-					result.append(line);
-				}
-				// System.out.println(result.toString());
-				Gson gson = new Gson();
-				Type HashMapType = new TypeToken<HashMap<String, String>>() {
-				}.getType();
-				HashMap<String, String> authData = gson.fromJson(
-						result.toString(), HashMapType);
-				setAuth(auth, authData);
+			StringBuilder data = new StringBuilder();
+			int count = 0;
+			if (!(mediaType == ContentTypeSelection.FORM_TYPE_MARKDOWN.value)) {
+				data.append("{ ");
 			}
-		} catch (IOException e1) {
-			e1.printStackTrace();
+			for (HashMap.Entry<String, String> entry : body.entrySet()) {
+				if (mediaType ==ContentTypeSelection.FORM_TYPE_MARKDOWN.value) {
+					if (count != 0) {
+						data.append("&");
+					}
+					data.append(entry.getKey() + "=" + URLEncoder.encode(entry.getValue(), "UTF-8"));
+					count++;
+				} else {
+					if (count != 0) {
+						data.append(", ");
+					}
+					data.append(entry.getKey());
+					data.append(": ");
+					data.append(entry.getValue());
+					count++;
+				}
+			}
+			if (!(mediaType ==ContentTypeSelection.FORM_TYPE_MARKDOWN.value)) {
+				data.append(" }");
+			}
+			bodyString = data.toString();
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return bodyString;
+	}
+
+	protected String bodyToString(final Request request){
+		try {
+			final Request copy = request.newBuilder().build();
+			final Buffer buffer = new Buffer();
+			copy.body().writeTo(buffer);
+			System.out.println(copy.header("Authorization"));
+
+			System.out.println(copy.header("Content-Type"));
+			return buffer.readUtf8();
+		} catch (final IOException e) {
+			return "did not work";
 		}
 	}
 
+
+	public void authCall(HashMap<String, String> body) {
+
+		String URL = server.value + authURL;
+		OkHttpClient client = new OkHttpClient();
+		Request.Builder requestBuilder = new Request.Builder();
+		request =  requestBuilder
+				.url(URL).
+				addHeader(HttpHeaders.AUTHORIZATION, "Basic "+encodeAPICredentialsToBase64()).
+				addHeader(HttpHeaders.CONTENT_TYPE,ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString()).
+				post(RequestBody.create(ContentTypeSelection.FORM_TYPE_MARKDOWN.value, createBodyString(body, ContentTypeSelection.FORM_TYPE_MARKDOWN))).
+				build();
+
+		System.out.println("Check Body of Request: "+bodyToString(request));
+
+		try {
+			response = client.newCall(request).execute();
+			if (response.isSuccessful()) 
+				setAuth(auth, response);
+			else
+				System.out.println("Authorization not successful");
+			//throw new IOException();
+		} catch (IOException e) {
+			System.err.print("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage() +l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
+		}
+	}
+
+
 	public void authorize(String username, String extension, String password) {
 
-		List<NameValuePair> body = new ArrayList<NameValuePair>();
-		body.add(new BasicNameValuePair("username", username));
-		body.add(new BasicNameValuePair("password", password));
-		body.add(new BasicNameValuePair("extension", extension));
-		body.add(new BasicNameValuePair("grant_type", "password"));
+		HashMap<String,String> body = new HashMap<String, String>();
+		body.put("username", username);
+		body.put("password", password);
+		body.put("extension", extension);
+		body.put("grant_type", "password");
 
 		authCall(body);
 
@@ -135,181 +199,73 @@ public class Platform {
 		return auth;
 	}
 
-	public void setAuth(Auth auth, HashMap<String, String> authData) {
-		this.auth.setData(authData);
+	public void setAuth(Auth auth, Response response) {
+
+		BufferedReader rd;
+		HashMap<String, String> data= new HashMap<String, String>();
+		try {
+			rd = new BufferedReader(new InputStreamReader(
+					response.body().byteStream()));
+			StringBuffer result = new StringBuffer();
+			String line = "";
+			while ((line = rd.readLine()) != null) {
+				result.append(line);
+			}
+			// System.out.println(result.toString());
+			Gson gson = new Gson();
+			Type HashMapType = new TypeToken<HashMap<String, String>>() {
+			}.getType();
+			data= gson.fromJson(
+					result.toString(), HashMapType);
+		} catch (IOException e) {
+			System.err.print("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
+		}
+		this.auth.setData(data);
+
 	}
 
+	public Builder requestBuilder( HashMap<String, String> hm) {
 
-	//apiCall("post", "/call-log", "{body}", header)
+		if(hm==null){
+			hm= new HashMap<String, String>();
+		}
+		hm.put("Authorization", getAuthHeader());
 
-	//Additionals
+		Builder requestBuilder = new Request.Builder();		
+		for (Entry<String, String> entry : hm.entrySet()) {
+			requestBuilder.addHeader(entry.getKey(), entry.getValue());	
+		}
+		return requestBuilder;
+	}
 
-
-
-	public HttpResponse apiCall(String method, String apiURL, LinkedHashMap<String, String> body, HashMap<String, String> headerMap) throws IOException {
+	public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
 
 		//this.isAuthorized();
-
 		String URL = server.value+apiURL;
-
-		HttpClient client = HttpClientBuilder.create().build();
-		HttpResponse response=null;
-		if(headerMap==null){
-			headerMap= new HashMap<String, String>();
-		}
-
-		headerMap.put("Authorization", getAuthHeader());
-		if(method.equalsIgnoreCase("get")){
-			HttpGet httpget = new  HttpGet(URL);
-			for (Entry<String, String> entry : headerMap.entrySet()) {
-				httpget.addHeader(entry.getKey(), entry.getValue());
+		OkHttpClient client = new OkHttpClient();
+		try{
+			System.out.println(getAuthHeader());
+			if(method.equalsIgnoreCase("get")){
+				request = requestBuilder(headerMap).url(URL).build();
 			}
-			response = client.execute(httpget);
+			else if (method.equalsIgnoreCase("delete")){
+				request = requestBuilder(headerMap).url(URL).delete().build();
+			}
+			else{
+				if(method.equalsIgnoreCase("post")){
+					request=requestBuilder(headerMap).url(URL).post(body).build();
+				}
+				else if(method.equalsIgnoreCase("put")){
+					request = requestBuilder(headerMap).url(URL).put(body).build();
+				}
+			}
+
+		} catch (Exception e) {
+			System.err.print("Failed APICall. Exception occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
 		}
-
-		return response;
+		response = client.newCall(request).execute();
+		return new APIResponse(request,response);	
 	}
-
-
-
-	//
-	//BufferedReader in = null;
-	//
-	//String output =  "";
-	//try {
-	//
-	//	StringBuilder data = new StringBuilder();
-	//	byte[] byteArray = data.toString().getBytes("UTF-8");
-	//
-	//	URL requests = new URL(urll);
-	//	httpConn = (HttpsURLConnection) requests.openConnection();
-	//	httpConn.setRequestMethod("GET");
-	//	httpConn.setRequestProperty(
-	//			"Authorization",
-	//			"Bearer "+getAccessToken().toString());
-	//	httpConn.setDoOutput(true);
-	//	System.out.println("Here");
-	//	InputStreamReader reader = new InputStreamReader(
-	//			httpConn.getInputStream());
-	//	in = new BufferedReader(reader);
-	//	System.out.println("Done");
-	//	StringBuffer content = new StringBuffer();
-	//	String line;
-	//	while ((line = in.readLine()) != null) {
-	//		content.append(line + "\n");
-	//	}
-	//	in.close();
-	//
-	//	String json = content.toString();
-	//	Date date = new Date();
-	//	output = "--------------"+date+"-------------------\n";
-	//	output = output+ json;
-	//	System.out.println("presence : "+ json);
-	//
-	//} catch (java.io.IOException e) {
-	//	output = output+ e.getMessage();
-	//	System.out.println(e.getMessage());
-	//
-	//} finally {
-	//	if (in != null)
-	//		in.close();
-	//	if (httpConn != null)
-	//		httpConn.disconnect();
-	//}
-	//
-	//output=output+"\n --------------------------------------------\n\n\n";
-	//
-	//
-	//}
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-	//
-
-
-
-
-
-
-
-
-
-
-
-	//					
-	//					
-	//					
-	//					
-	//			OkHttpClient client = new OkHttpClient();
-	//			//Check if the Platform is authorized, and add the authorization header
-	//			this.isAuthorized();
-	//			headerMap.put("Authorization", this.getAuthHeader());
-	//			//Generate the proper url to be passed into the request
-	//			HashMap<String, String> options = new HashMap<>();
-	//			options.put("addServer", "true");
-	//			String apiUrl = apiURL(url, options);
-	//
-	//			Request.Builder requestBuilder = new Request.Builder();
-	//			//Add all the headers to the Request.Builder from the headerMap
-	//			for (Map.Entry<String, String> entry : headerMap.entrySet()) {
-	//				requestBuilder.addHeader(entry.getKey(), entry.getValue());
-	//			}
-	//			Request request = null;
-	//			if (method.toUpperCase().equals("GET")) {
-	//				request = requestBuilder
-	//						.url(apiUrl)
-	//						.build();
-	//			} else if (method.toUpperCase().equals("DELETE")) {
-	//				request = requestBuilder
-	//						.url(apiUrl)
-	//						.delete()
-	//						.build();
-	//			} else {
-	//				//For POST and PUT requests, find and set what MediaType the body is
-	//				MediaType mediaType;
-	//				if (headerMap.containsValue("application/json")) {
-	//					mediaType = MediaType.parse(ContentTypeSelection.JSON_TYPE_MARKDOWN.toString());
-	//				} else if (headerMap.containsValue("multipart/mixed")) {
-	//					mediaType = MediaType.parse(ContentTypeSelection.MULTIPART_TYPE_MARKDOWN.toString());
-	//				} else {
-	//					mediaType =MediaType.parse(ContentTypeSelection.FORM_TYPE_MARKDOWN.toString());
-	//				}
-	//				String bodyString = getBodyString(body, mediaType);
-	//				if (method.toUpperCase().equals("POST")) {
-	//					request = requestBuilder
-	//							.url(apiUrl)
-	//							.post(RequestBody.create(mediaType, bodyString))
-	//							.build();
-	//				} else if (method.toUpperCase().equals("PUT")) {
-	//					request = requestBuilder
-	//							.url(apiUrl)
-	//							.put(RequestBody.create(mediaType, bodyString))
-	//							.build();
-	//				}
-	//			}
-	//			//Make OKHttp request call, that returns response to the callback
-	//			client.newCall(request).enqueue(callback);
-	//		} catch (Exception e) {
-	//			e.printStackTrace();
-	//		}
 }
 
 
