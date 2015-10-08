@@ -29,36 +29,36 @@ public class Auth {
 //		owner_id = "";
 //	}
 
-	public String getAccessToken() {
+	
+	
+	public String accessToken() {
 		return this.access_token;
 	}
 
-	public Auth getData() {
-		return this;
-	}
-
-	public String getRefreshToken() {
-		return this.refresh_token;
-	}
-
-	public String getTokenType() {
-		return this.token_type;
-	}
-
-	public boolean isAccessTokenValid() {
+	public boolean accessTokenValid() {
 		GregorianCalendar cal = new GregorianCalendar();
 		cal.setTime(this.expire_time);
 		return isTokenDateValid(cal);
 	}
 
-	public boolean isRefreshTokenValid() {
+	public Auth data() {
+		//hashmap and return 
+		
+		return this;
+	}
+
+	protected boolean isTokenDateValid(GregorianCalendar token_date) {
+		return (token_date.compareTo(new GregorianCalendar()) > 0);
+	}
+
+	public String refreshToken() {
+		return this.refresh_token;
+	}
+
+	public boolean refreshTokenValid() {
 		GregorianCalendar cal = new GregorianCalendar();
 		cal.setTime(this.refresh_token_expire_time);
 		return isTokenDateValid(cal);
-	}
-
-	public boolean isTokenDateValid(GregorianCalendar token_date) {
-		return (token_date.compareTo(new GregorianCalendar()) > 0);
 	}
 
 	public void setData(Map<String, String> authData) {
@@ -106,5 +106,9 @@ public class Auth {
 //		System.out.println(this.expires_in);
 //		System.out.println(this.refresh_token_expires_in);
 //		System.out.println(this.refresh_token_expire_time);
+	}
+
+	public String tokenType() {
+		return this.token_type;
 	}
 }

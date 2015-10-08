@@ -8,41 +8,23 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map.Entry;
 
-import javax.net.ssl.HttpsURLConnection;
 import javax.xml.bind.DatatypeConverter;
 
 import okio.Buffer;
 
-import org.apache.http.Consts;
 import org.apache.http.HttpHeaders;
-import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.methods.RequestBuilder;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.message.BasicNameValuePair;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Request.Builder;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseBody;
 import com.squareup.okhttp.internal.http.HeaderParser;
 
 public class Platform {
@@ -75,11 +57,11 @@ public class Platform {
 	Auth auth;
 	final String authURL = "/restapi/oauth/token";
 	private  HeaderParser headers  ;
-	public Server server;
-	Response response;
-	Request request;
-	
 	StackTraceElement l = new Exception().getStackTrace()[0];
+	Request request;
+	Response response;
+	
+	public Server server;
 	
 
 
@@ -91,6 +73,78 @@ public class Platform {
 		this.auth = new Auth();
 	}
 
+public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
+
+		//this.isAuthorized();
+		String URL = server.value+apiURL;
+		OkHttpClient client = new OkHttpClient();
+		try{
+			System.out.println(getAuthHeader());
+			if(method.equalsIgnoreCase("get")){
+				request = requestBuilder(headerMap).url(URL).build();
+			}
+			else if (method.equalsIgnoreCase("delete")){
+				request = requestBuilder(headerMap).url(URL).delete().build();
+			}
+			else{
+				if(method.equalsIgnoreCase("post")){
+					request=requestBuilder(headerMap).url(URL).post(body).build();
+				}
+				else if(method.equalsIgnoreCase("put")){
+					request = requestBuilder(headerMap).url(URL).put(body).build();
+				}
+			}
+
+		} catch (Exception e) {
+			System.err.print("Failed APICall. Exception occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
+		}
+		response = client.newCall(request).execute();
+		return new APIResponse(request,response);	
+	}
+
+	public void authCall(HashMap<String, String> body) {
+
+		String URL = server.value + authURL;
+		OkHttpClient client = new OkHttpClient();
+		Request.Builder requestBuilder = new Request.Builder(); // todo move this to client
+		request =  requestBuilder
+				.url(URL).
+				addHeader(HttpHeaders.AUTHORIZATION, "Basic "+encodeAPICredentialsToBase64()).
+				addHeader(HttpHeaders.CONTENT_TYPE,ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString()).
+				post(RequestBody.create(ContentTypeSelection.FORM_TYPE_MARKDOWN.value, createBodyString(body, ContentTypeSelection.FORM_TYPE_MARKDOWN))).
+				build();
+
+		System.out.println("Check Body of Request: "+bodyToString(request));
+
+		try {
+			response = client.newCall(request).execute();
+			if (response.isSuccessful()) 
+				setAuth(auth, response);
+			else
+				System.out.println("Authorization not successful");
+			//throw new IOException();
+		} catch (IOException e) {
+			System.err.print("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage() +l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
+		}
+	}
+
+
+	protected String bodyToString(final Request request){
+		try {
+			final Request copy = request.newBuilder().build();
+			final Buffer buffer = new Buffer();
+			copy.body().writeTo(buffer);
+			System.out.println(copy.header("Authorization"));
+
+			System.out.println(copy.header("Content-Type"));
+			return buffer.readUtf8();
+		} catch (final IOException e) {
+			return "did not work";
+		}
+	}
+
+
+	//todo: Replace with opensource impl for JSON 
 	protected String createBodyString(HashMap<String, String> body, ContentTypeSelection type) {
 		String bodyString = "";
 		MediaType mediaType = type.value;
@@ -127,49 +181,25 @@ public class Platform {
 		return bodyString;
 	}
 
-	protected String bodyToString(final Request request){
-		try {
-			final Request copy = request.newBuilder().build();
-			final Buffer buffer = new Buffer();
-			copy.body().writeTo(buffer);
-			System.out.println(copy.header("Authorization"));
-
-			System.out.println(copy.header("Content-Type"));
-			return buffer.readUtf8();
-		} catch (final IOException e) {
-			return "did not work";
-		}
+	public String encodeAPICredentialsToBase64() {
+		String apiCredentials = appKey + ":" + appSecret;
+		byte[] message = apiCredentials.getBytes();
+		return DatatypeConverter.printBase64Binary(message);
 	}
 
-
-	public void authCall(HashMap<String, String> body) {
-
-		String URL = server.value + authURL;
-		OkHttpClient client = new OkHttpClient();
-		Request.Builder requestBuilder = new Request.Builder();
-		request =  requestBuilder
-				.url(URL).
-				addHeader(HttpHeaders.AUTHORIZATION, "Basic "+encodeAPICredentialsToBase64()).
-				addHeader(HttpHeaders.CONTENT_TYPE,ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString()).
-				post(RequestBody.create(ContentTypeSelection.FORM_TYPE_MARKDOWN.value, createBodyString(body, ContentTypeSelection.FORM_TYPE_MARKDOWN))).
-				build();
-
-		System.out.println("Check Body of Request: "+bodyToString(request));
-
-		try {
-			response = client.newCall(request).execute();
-			if (response.isSuccessful()) 
-				setAuth(auth, response);
-			else
-				System.out.println("Authorization not successful");
-			//throw new IOException();
-		} catch (IOException e) {
-			System.err.print("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage() +l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
-		}
+	public String getAccessToken() {
+		return auth.accessToken();
 	}
 
+	public Auth getAuth() {
+		return auth;
+	}
 
-	public void authorize(String username, String extension, String password) {
+	protected String getAuthHeader(){
+		return this.auth.tokenType() + " " + this.getAccessToken();
+	}
+
+	public void login(String username, String extension, String password) {
 
 		HashMap<String,String> body = new HashMap<String, String>();
 		body.put("username", username);
@@ -181,25 +211,21 @@ public class Platform {
 
 	}
 
-	public String encodeAPICredentialsToBase64() {
-		String apiCredentials = appKey + ":" + appSecret;
-		byte[] message = apiCredentials.getBytes();
-		return DatatypeConverter.printBase64Binary(message);
+	protected Builder requestBuilder( HashMap<String, String> hm) {
+
+		if(hm==null){
+			hm= new HashMap<String, String>();
+		}
+		hm.put("Authorization", getAuthHeader());
+
+		Builder requestBuilder = new Request.Builder();		
+		for (Entry<String, String> entry : hm.entrySet()) {
+			requestBuilder.addHeader(entry.getKey(), entry.getValue());	
+		}
+		return requestBuilder;
 	}
 
-	public String getAuthHeader(){
-		return this.auth.getTokenType() + " " + this.getAccessToken();
-	}
-
-	public String getAccessToken() {
-		return auth.getAccessToken();
-	}
-
-	public Auth getAuth() {
-		return auth;
-	}
-
-	public void setAuth(Auth auth, Response response) {
+	protected void setAuth(Auth auth, Response response) {
 
 		BufferedReader rd;
 		HashMap<String, String> data= new HashMap<String, String>();
@@ -222,49 +248,6 @@ public class Platform {
 		}
 		this.auth.setData(data);
 
-	}
-
-	public Builder requestBuilder( HashMap<String, String> hm) {
-
-		if(hm==null){
-			hm= new HashMap<String, String>();
-		}
-		hm.put("Authorization", getAuthHeader());
-
-		Builder requestBuilder = new Request.Builder();		
-		for (Entry<String, String> entry : hm.entrySet()) {
-			requestBuilder.addHeader(entry.getKey(), entry.getValue());	
-		}
-		return requestBuilder;
-	}
-
-	public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
-
-		//this.isAuthorized();
-		String URL = server.value+apiURL;
-		OkHttpClient client = new OkHttpClient();
-		try{
-			System.out.println(getAuthHeader());
-			if(method.equalsIgnoreCase("get")){
-				request = requestBuilder(headerMap).url(URL).build();
-			}
-			else if (method.equalsIgnoreCase("delete")){
-				request = requestBuilder(headerMap).url(URL).delete().build();
-			}
-			else{
-				if(method.equalsIgnoreCase("post")){
-					request=requestBuilder(headerMap).url(URL).post(body).build();
-				}
-				else if(method.equalsIgnoreCase("put")){
-					request = requestBuilder(headerMap).url(URL).put(body).build();
-				}
-			}
-
-		} catch (Exception e) {
-			System.err.print("Failed APICall. Exception occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
-		}
-		response = client.newCall(request).execute();
-		return new APIResponse(request,response);	
 	}
 }
 

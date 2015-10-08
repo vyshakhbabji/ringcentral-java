@@ -10,7 +10,7 @@ public class SDK {
 		platform = new Platform(appKey, appSecret, server);
 	}
 
-	public Platform getPlatform() {
+	public Platform platform() {
 		return this.platform;
 	}
 }
