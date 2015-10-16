@@ -6,6 +6,8 @@ import java.io.IOException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import platform.Platform.ContentTypeSelection;
+
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.ResponseBody;
@@ -21,9 +23,60 @@ public class APIResponse {
         this.response = response;
     }
 
+ 
+    public boolean ok() {
+        int status = this.response.code();
+        return (status >= 200 && status < 300);
+    }
+
+    public ResponseBody raw() {
+        return this.body();
+    }
+
     public ResponseBody body() {
         return this.response.body();
     }
+    
+    public String text() throws IOException {
+
+        String responseAsText = "";
+        try {
+            responseAsText = response.body().string();
+            return responseAsText;
+        } catch (IOException e) {
+        	throw e;
+        	//  System.err.print("IOException occured while converting the HTTP response to string in Class:  " + this.getClass().getName() + ": " + e.getMessage());
+        }
+     
+    }
+    
+    //json_dict not necessary
+    
+    public JSONObject json() {
+        JSONObject object = new JSONObject();
+        try {
+            object = new JSONObject(response.body().string());
+            throw new IOException();
+        } catch (JSONException e) {
+            System.err.print("JSONException occured while converting the HTTP response to JSON in Class:  " + this.getClass().getName() + ": " + e.getMessage());
+        } catch (IOException e) {
+            System.err.print("IOException occured while converting the HTTP response to JSON in Class:  " + this.getClass().getName() + ": " + e.getMessage());
+        }
+        return object;
+    }
+    
+//    public APIResponse multipart() throws Exception{
+//    	
+//    	if(this.isContentType(ContentTypeSelection.MULTIPART_TYPE_MARKDOWN.value.toString())){
+//    		throw new Exception("Exception occured.Response is not Batch (Multipart) ");
+//    	}
+//    	
+//    	
+//    	
+//    }
+    
+    
+    
 
     @SuppressWarnings("finally")
 	public String error() {
@@ -51,6 +104,15 @@ public class APIResponse {
             return message;
         }
     }
+    
+    public Request request() {
+        return this.response.request();
+    }
+
+    public Response response() {
+        return this.response;
+    }
+
 
     protected String getContentType() {
         return this.response.headers().get("Content-Type");
@@ -60,54 +122,8 @@ public class APIResponse {
         return this.response().body().contentType().toString().equalsIgnoreCase(contentType);
     }
 
-    public JSONObject json() {
-        JSONObject object = new JSONObject();
-        try {
-            object = new JSONObject(response.body().string());
-            throw new IOException();
-        } catch (JSONException e) {
-            System.err.print("JSONException occured while converting the HTTP response to JSON in Class:  " + this.getClass().getName() + ": " + e.getMessage());
-        } catch (IOException e) {
-            System.err.print("IOException occured while converting the HTTP response to JSON in Class:  " + this.getClass().getName() + ": " + e.getMessage());
-        }
-        return object;
-    }
-
-    public boolean ok() {
-        int status = this.response.code();
-        return (status >= 200 && status < 300);
-    }
-
-
-    public ResponseBody raw() {
-        return this.body();
-    }
-
-
-
-    public Request request() {
-        return this.response.request();
-    }
-
-    public Response response() {
-        return this.response;
-    }
-
-    public String text() throws IOException {
-
-        String responseAsText = "";
-        try {
-            responseAsText = response.body().string();
-            return responseAsText;
-        } catch (IOException e) {
-        	throw e;
-        	//  System.err.print("IOException occured while converting the HTTP response to string in Class:  " + this.getClass().getName() + ": " + e.getMessage());
-        }
-     
-    }
 
     //todo: multipart def
     //todo: break_into_parts
-
 
 }

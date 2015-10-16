@@ -60,9 +60,9 @@ public class Platform {
 	StackTraceElement l = new Exception().getStackTrace()[0];
 	Request request;
 	Response response;
-	
+
 	public Server server;
-	
+
 
 
 	public Platform(String appKey, String appSecret, Server server) {
@@ -73,7 +73,13 @@ public class Platform {
 		this.auth = new Auth();
 	}
 
-public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
+
+
+
+
+
+
+	public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
 
 		//this.isAuthorized();
 		String URL = server.value+apiURL;
@@ -249,6 +255,31 @@ public APIResponse apiCall(String method, String apiURL, RequestBody body, HashM
 		this.auth.setData(data);
 
 	}
+	
+//	
+//	public boolean loggedIn(){
+//		if(this.auth.accessTokenValid()||this.refresh())
+//			return true;
+//		else 
+//			return false;
+//	}
+//
+//	public void refresh() throws Exception{
+//		if(!this.auth.refreshTokenValid())
+//			throw new Exception("Refresh Token has expired");
+//
+//		response = this.requestToken(TOKEN_ENDPOINT, body={
+//				"grant_type": "refresh_token",
+//				"refresh_token": this.auth.refresh_token(),
+//				"access_token_ttl": ACCESS_TOKEN_TTL,
+//				"refresh_token_ttl": REFRESH_TOKEN_TTL
+//		});
+//
+//		this._auth.set_data(response.json_dict())
+//
+//		return response
+//
+//	}
 }
 
 
