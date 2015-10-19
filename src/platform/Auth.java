@@ -117,11 +117,11 @@ public class Auth {
 		return this.access_token;
 	}
 
-	//	public boolean accessTokenValid() {
-	//		GregorianCalendar cal = new GregorianCalendar();
-	//		cal.setTime(this.expire_time);
-	//		return isTokenDateValid(cal);
-	//	}
+	public boolean accessTokenValid() {
+		GregorianCalendar cal = new GregorianCalendar();
+		cal.setTime(this.expire_time);
+		return isTokenDateValid(cal);
+	}
 
 	public HashMap<String, String> data() {
 		//hashmap and return 
@@ -156,36 +156,45 @@ public class Auth {
 		return this.refresh_token;
 	}
 
-//	public boolean refreshTokenValid() {
-//		GregorianCalendar cal = new GregorianCalendar();
-//		cal.setTime(this.refresh_token_expire_time);
-//		return isTokenDateValid(cal);
-//	}
+	//	public boolean refreshTokenValid() {
+	//		GregorianCalendar cal = new GregorianCalendar();
+	//		cal.setTime(this.refresh_token_expire_time);
+	//		return isTokenDateValid(cal);
+	//	}
 
 
 	public String tokenType() {
 		return this.token_type;
 	}
 
-	public boolean accessTokenValid() throws ParseException{
+	//	public boolean accessTokenValid() {
+	//
+	//		DateFormat format = new SimpleDateFormat( "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" );
+	//		Date       date = format.parse(this.data().get( "expire_time"));
+	//		GregorianCalendar   calendar = new GregorianCalendar();
+	//
+	//		calendar.setTime( date );
+	//
+	//		return this.isTokenDateValid(calendar);
+	//	}
 
-		DateFormat format = new SimpleDateFormat( "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" );
-		Date       date = format.parse(this.data().get( "expire_time"));
-		GregorianCalendar   calendar = new GregorianCalendar();
+	public boolean refreshTokenValid() throws Exception {
 
-		calendar.setTime( date );
 
-		return this.isTokenDateValid(calendar);
+		GregorianCalendar cal = new GregorianCalendar();
+		if(this.refresh_token_expire_time!=null)
+			cal.setTime(this.refresh_token_expire_time);
+		else
+			throw new Exception("Refresh Token Expired. Please try logging in with your credentials.");
+		
+		return this.isTokenDateValid(cal);
+
+
 	}
 
-	public boolean refreshTokenValid() throws ParseException{
 
-		DateFormat format = new SimpleDateFormat( "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" );
-		Date       date = format.parse(this.data().get( "refresh_token_expire_time"));
-		GregorianCalendar   calendar = new GregorianCalendar();
-
-		calendar.setTime( date );
-
-		return this.isTokenDateValid(calendar);
+	public String getRefreshToken() {
+		// TODO Auto-generated method stub
+		return this.refresh_token;
 	}
 }

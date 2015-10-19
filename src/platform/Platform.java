@@ -8,12 +8,14 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Type;
 import java.net.URLEncoder;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
 import javax.xml.bind.DatatypeConverter;
 
 import okio.Buffer;
+import okio.BufferedSink;
 
 import org.apache.http.HttpHeaders;
 
@@ -25,6 +27,7 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Request.Builder;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
 import com.squareup.okhttp.internal.http.HeaderParser;
 
 public class Platform {
@@ -51,12 +54,16 @@ public class Platform {
 		}
 	}
 
+	public final int ACCESS_TOKEN_TTL = 3600;
+	public final int REFRESH_TOKEN_TTL = 604800;
+
 	public String accessToken;
 	public String appKey;
 	public String appSecret;
 	Auth auth;
-	final String authURL = "/restapi/oauth/token";
-	private  HeaderParser headers  ;
+	final String TOKEN_ENDPOINT_URL = "/restapi/oauth/token";
+	final String REVOKE_ENDPOINT_URL = "/restapi/oauth/revoke";
+
 	StackTraceElement l = new Exception().getStackTrace()[0];
 	Request request;
 	Response response;
@@ -73,17 +80,13 @@ public class Platform {
 		this.auth = new Auth();
 	}
 
-
-
-
-
-
-
 	public APIResponse apiCall(String method, String apiURL, RequestBody body, HashMap<String, String> headerMap) throws IOException {
 
 		//this.isAuthorized();
 		String URL = server.value+apiURL;
 		OkHttpClient client = new OkHttpClient();
+		
+	
 		try{
 			System.out.println(getAuthHeader());
 			if(method.equalsIgnoreCase("get")){
@@ -108,9 +111,9 @@ public class Platform {
 		return new APIResponse(request,response);	
 	}
 
-	public void authCall(HashMap<String, String> body) {
+	public void authCall(String endpoint, HashMap<String, String> body) {
 
-		String URL = server.value + authURL;
+		String URL = server.value + endpoint;
 		OkHttpClient client = new OkHttpClient();
 		Request.Builder requestBuilder = new Request.Builder(); // todo move this to client
 		request =  requestBuilder
@@ -124,7 +127,7 @@ public class Platform {
 
 		try {
 			response = client.newCall(request).execute();
-			if (response.isSuccessful()) 
+			if (response.isSuccessful()&&endpoint.equals(TOKEN_ENDPOINT_URL)) 
 				setAuth(auth, response);
 			else
 				System.out.println("Authorization not successful");
@@ -213,7 +216,7 @@ public class Platform {
 		body.put("extension", extension);
 		body.put("grant_type", "password");
 
-		authCall(body);
+		authCall( TOKEN_ENDPOINT_URL,body);
 
 	}
 
@@ -231,7 +234,7 @@ public class Platform {
 		return requestBuilder;
 	}
 
-	protected void setAuth(Auth auth, Response response) {
+	protected void setAuth(Auth auth, Response response) throws IOException {
 
 		BufferedReader rd;
 		HashMap<String, String> data= new HashMap<String, String>();
@@ -250,36 +253,43 @@ public class Platform {
 			data= gson.fromJson(
 					result.toString(), HashMapType);
 		} catch (IOException e) {
-			System.err.print("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
+			throw new IOException("Failed Authorization. IOException occured in Class:  " + this.getClass().getName() + ": " + e.getMessage()+l.getClassName()+"/"+l.getMethodName()+":"+l.getLineNumber());
 		}
 		this.auth.setData(data);
 
 	}
-	
-//	
-//	public boolean loggedIn(){
-//		if(this.auth.accessTokenValid()||this.refresh())
-//			return true;
-//		else 
-//			return false;
-//	}
-//
-//	public void refresh() throws Exception{
-//		if(!this.auth.refreshTokenValid())
-//			throw new Exception("Refresh Token has expired");
-//
-//		response = this.requestToken(TOKEN_ENDPOINT, body={
-//				"grant_type": "refresh_token",
-//				"refresh_token": this.auth.refresh_token(),
-//				"access_token_ttl": ACCESS_TOKEN_TTL,
-//				"refresh_token_ttl": REFRESH_TOKEN_TTL
-//		});
-//
-//		this._auth.set_data(response.json_dict())
-//
-//		return response
-//
-//	}
+
+	public void refresh() throws Exception{
+		if(!this.auth.refreshTokenValid()){
+			throw new Exception("Refresh Token Expired");
+		}
+
+		HashMap<String, String > body = new HashMap<String, String>();
+		body.put("grant_type", "refresh_token");
+		body.put("refresh_token", this.auth.getRefreshToken());
+		authCall(TOKEN_ENDPOINT_URL,body);
+	}
+
+	public void loggedIn() throws Exception{
+
+		if(!this.auth.accessTokenValid()){
+			this.refresh();
+		}
+
+		if(!this.auth.accessTokenValid()){
+			throw new Exception("Access token expired");
+		}
+	}
+
+	public void logout(){
+		HashMap<String, String > body = new HashMap<String, String>();
+		body.put("access_token",this.getAccessToken());
+		this.authCall(REVOKE_ENDPOINT_URL, body);
+		this.auth.reset();
+	}
+
+
+
 }
 
 

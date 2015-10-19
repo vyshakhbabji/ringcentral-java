@@ -44,7 +44,9 @@ public class Subscription{
     String uri = "";
     
     Platform platform;
+    Subscription subscription;
 
+    String SUBSCRIPTION_END_POINT= "/restapi/v1.0/subscription/";
     
     public class IDeliveryMode {
         public String transportType = "Pubnub";
@@ -58,6 +60,7 @@ public class Subscription{
     public Subscription(Platform platform){
     	
     	this.platform = platform;
+    	this.subscription = this;
     }
 
     public void updateSubscription(JSONObject responseJson) throws JSONException{
@@ -106,6 +109,7 @@ public class Subscription{
     public void unsubscribe() {
         if((this.pubnub != null) && this.isSubscribed())
             this.pubnub.unsubscribe(deliveryMode.address);
+        System.out.println("Unsubscribed!!! ");
     }
 
     public String notify(String message, String encryptionKey){
@@ -125,6 +129,15 @@ public class Subscription{
         }
         System.out.println(decryptedString);
         return decryptedString;
+    }
+    
+    public void removeSubscription() throws IOException {
+       
+    	System.out.println("Subscription ID: "+subscription.id);
+        String url =  SUBSCRIPTION_END_POINT + subscription.id;
+        APIResponse r= platform.apiCall("delete", url, null, null);
+        System.out.println(r.body().string());
+        this.unsubscribe();   
     }
    
 }
