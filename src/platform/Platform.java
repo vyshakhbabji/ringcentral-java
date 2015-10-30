@@ -52,7 +52,6 @@ public class Platform {
 	protected final int ACCESS_TOKEN_TTL = 3600;
 	protected final int REFRESH_TOKEN_TTL = 604800;
 
-
 	protected String accessToken;
 
 	protected String appKey;
@@ -62,14 +61,13 @@ public class Platform {
 	StackTraceElement l = new Exception().getStackTrace()[0];
 
 	Request request;
-
 	Response response;
+
+	final String TOKEN_ENDPOINT_URL = "/restapi/oauth/token";
 	final String REVOKE_ENDPOINT_URL = "/restapi/oauth/revoke";
 
 	protected Server server;
-
-	final String TOKEN_ENDPOINT_URL = "/restapi/oauth/token";
-
+	
 	public Platform(String appKey, String appSecret, Server server) {
 		super();
 		this.appKey = appKey;
@@ -81,12 +79,12 @@ public class Platform {
 	public APIResponse sendRequest(String method, String apiURL, RequestBody body,
 			HashMap<String, String> headerMap) throws IOException {
 
-		// this.isAuthorized();
+		ensureAuthentication();
 		String URL = server.value + apiURL;
 		OkHttpClient client = new OkHttpClient();
 
 		try {
-			System.out.println(authHeader());
+	//		System.out.println(authHeader());
 			if (method.equalsIgnoreCase("get")) {
 				request = requestBuilder(headerMap).url(URL).build();
 			} else if (method.equalsIgnoreCase("delete")) {
@@ -98,6 +96,8 @@ public class Platform {
 				} else if (method.equalsIgnoreCase("put")) {
 					request = requestBuilder(headerMap).url(URL).put(body)
 							.build();
+					
+					
 				}
 			}
 
@@ -132,14 +132,14 @@ public class Platform {
 												ContentTypeSelection.FORM_TYPE_MARKDOWN)))
 												.build();
 
-		System.out.println("Check Body of Request: " + bodyToString(request));
+	//	System.out.println("Check Body of Request: " + bodyToString(request));
 
 		try {
 			response = client.newCall(request).execute();
 			if (response.isSuccessful() && endpoint.equals(TOKEN_ENDPOINT_URL))
 				setAuth(auth, response);
 			else
-				System.out.println("Authorization not successful");
+				System.err.println("Authorization not successful");
 			// throw new IOException();
 		} catch (IOException e) {
 			System.err
@@ -153,7 +153,6 @@ public class Platform {
 					+ ":"
 					+ l.getLineNumber());
 		}
-
 		return response;
 	}
 
@@ -162,16 +161,15 @@ public class Platform {
 			final Request copy = request.newBuilder().build();
 			final Buffer buffer = new Buffer();
 			copy.body().writeTo(buffer);
-			System.out.println(copy.header("Authorization"));
-
-			System.out.println(copy.header("Content-Type"));
+//			System.out.println(copy.header("Authorization"));
+//
+//			System.out.println(copy.header("Content-Type"));
 			return buffer.readUtf8();
 		} catch (final IOException e) {
 			return "did not work";
 		}
 	}
 
-	// todo: Replace with opensource impl for JSON
 	protected String createBodyString(HashMap<String, String> body,
 			ContentTypeSelection type) {
 		String bodyString = "";
@@ -245,9 +243,7 @@ public class Platform {
 		body.put("password", password);
 		body.put("extension", extension);
 		body.put("grant_type", "password");
-
 		return  authCall(TOKEN_ENDPOINT_URL, body);
-
 	}
 
 	public void logout() {
@@ -257,9 +253,9 @@ public class Platform {
 		this.auth.reset();
 	}
 
-	public Response refresh() throws Exception {
+	public Response refresh() throws IOException {
 		if (!this.auth.refreshTokenValid()) {
-			throw new Exception("Refresh Token Expired");
+			throw new IOException("Refresh Token Expired");
 		}
 
 		HashMap<String, String> body = new HashMap<String, String>();
@@ -308,10 +304,9 @@ public class Platform {
 							+ l.getLineNumber());
 		}
 		this.auth.setData(data);
-
 	}
-	
-	protected void ensureAuthentication() throws Exception{
+
+	protected void ensureAuthentication() throws IOException{
 		if(!this.auth.accessTokenValid()){
 			this.refresh();
 		}

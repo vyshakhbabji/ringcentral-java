@@ -70,7 +70,7 @@ public class Auth {
 	}
 
 	public Auth setData(Map<String, String> authData) {
-		
+
 		if(authData==null)
 			return this;
 
@@ -100,14 +100,12 @@ public class Auth {
 			this.expire_time = calendar.getTime();
 
 		}
-		
+
 		//refresh token
-		
+
 		if (authData.containsKey("refresh_token")) {
 			this.refresh_token = authData.get("refresh_token");
 		}
-		
-		
 		if (authData.containsKey("refresh_token_expires_in")) {
 			this.refresh_token_expires_in = authData
 					.get("refresh_token_expires_in");
@@ -120,7 +118,6 @@ public class Auth {
 			calendar.add(Calendar.SECOND, expiresIn);
 			this.refresh_token_expire_time = calendar.getTime();
 		}
-		
 		return this;
 	}
 

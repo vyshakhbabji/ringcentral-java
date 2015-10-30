@@ -61,8 +61,6 @@ public class APIResponse {
 				.equalsIgnoreCase(contentType);
 	}
 
-	// json_dict not necessary
-
 	public JSONObject json() {
 		JSONObject jObject = new JSONObject();
 		try {
@@ -79,17 +77,6 @@ public class APIResponse {
 		}
 		return jObject;
 	}
-
-	// public APIResponse multipart() throws Exception{
-	//
-	// if(this.isContentType(ContentTypeSelection.MULTIPART_TYPE_MARKDOWN.value.toString())){
-	// throw new
-	// Exception("Exception occured.Response is not Batch (Multipart) ");
-	// }
-	//
-	//
-	//
-	// }
 
 	public boolean ok() {
 		int status = this.response.code();
@@ -109,20 +96,20 @@ public class APIResponse {
 	}
 
 	public String text() throws IOException {
-
 		String responseAsText = "";
 		try {
 			responseAsText = response.body().string();
 			return responseAsText;
 		} catch (IOException e) {
 			throw e;
-			// System.err.print("IOException occured while converting the HTTP response to string in Class:  "
-			// + this.getClass().getName() + ": " + e.getMessage());
 		}
 
+	}
+	
+	public String headers(){
+		return response.headers().toString();
 	}
 
 	// todo: multipart def
 	// todo: break_into_parts
-
 }
