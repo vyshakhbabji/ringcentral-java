@@ -5,6 +5,10 @@ import java.io.IOException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.squareup.okhttp.Headers;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.ResponseBody;
@@ -23,33 +27,28 @@ public class APIResponse {
 		return this.response.body();
 	}
 
-	@SuppressWarnings("finally")
 	public String error() {
-		if (this.response == null || this.ok()) {
-			return null;
-		}
 
-		String message = "HTTP" + this.response().code();
+		String message="";
+		if (statusCode() >= 300) {
+			message = "HTTP error code: " + statusCode() + "\n";
 
-		JSONObject data;
+			try {
+				JSONObject data = new JSONObject(this.response.body().string());
+				if (data.getString("message") != null)
+					message = message + data.getString("message");
+				else if (data.getString("error_description") != null)
+					message = message + data.getString("error_description");
+				else if (data.getString("description") != null)
+					message = message + data.getString("description");
+				
+			} catch (JSONException | IOException e) {
+				message = message + "JSONException occured in Class:  "
+						+ this.getClass().getName() + "\n" + e.getMessage();
+			}
+		} 
 
-		try {
-			data = this.json();
-			if (data.getString("message") != null)
-				message = message + data.getString("message");
-			else if (data.getString("error_description") != null)
-				message = message + data.getString("error_description");
-			else if (data.getString("description") != null)
-				message = message + data.getString("description");
-
-		} catch (JSONException e) {
-			message = message + "JSONException occured in Class:  "
-					+ this.getClass().getName() + ": " + e.getMessage();
-			System.err.print("JSONException occured in Class:  "
-					+ this.getClass().getName() + ": " + e.getMessage());
-		} finally {
-			return message;
-		}
+		return message;
 	}
 
 	protected String getContentType() {
@@ -57,59 +56,52 @@ public class APIResponse {
 	}
 
 	protected boolean isContentType(String contentType) {
-		return this.response().body().contentType().toString()
-				.equalsIgnoreCase(contentType);
+		return getContentType().toString().equalsIgnoreCase(contentType);
 	}
 
-	public JSONObject json() {
-		JSONObject jObject = new JSONObject();
+	public JsonElement json() {
+		JsonElement jObject = new JsonObject();
 		try {
-			jObject = new JSONObject(response.body().string());
-			throw new IOException();
+			JsonParser parser = new JsonParser();
+			jObject = parser.parse(response.body().string());
+			return jObject;
 		} catch (JSONException e) {
 			System.err
-					.print("JSONException occured while converting the HTTP response to JSON in Class:  "
-							+ this.getClass().getName() + ": " + e.getMessage());
+			.print("JSONException occured while converting the HTTP response to JSON in Class:  "+ e.getStackTrace());
 		} catch (IOException e) {
 			System.err
-					.print("IOException occured while converting the HTTP response to JSON in Class:  "
-							+ this.getClass().getName() + ": " + e.getMessage());
+			.print("IOException occured while converting the HTTP response to JSON in Class:  "
+					+ this.getClass().getName() + ": " + e.getStackTrace());
 		}
 		return jObject;
 	}
 
 	public boolean ok() {
-		int status = this.response.code();
-		return (status >= 200 && status < 300);
-	}
-
-	public ResponseBody raw() {
-		return this.body();
+		return (statusCode() >= 200 && statusCode() < 300);
 	}
 
 	public Request request() {
 		return this.request;
 	}
 
+	public Headers requestHeaders() {
+		return request.headers();
+	}
+
 	public Response response() {
 		return this.response;
 	}
 
+	public Headers responseHeaders() {
+		return response.headers();
+	}
+
+	public int statusCode() {
+		return this.response.code();
+	}
+
 	public String text() throws IOException {
-		String responseAsText = "";
-		try {
-			responseAsText = response.body().string();
-			return responseAsText;
-		} catch (IOException e) {
-			throw e;
-		}
+		return body().string();
 
 	}
-	
-	public String headers(){
-		return response.headers().toString();
-	}
-
-	// todo: multipart def
-	// todo: break_into_parts
 }

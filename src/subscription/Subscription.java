@@ -30,6 +30,7 @@ public class Subscription {
 		public String subscriberKey = "";
 		public String transportType = "Pubnub";
 	}
+
 	String creationTime = "";
 	public IDeliveryMode deliveryMode = new IDeliveryMode();
 	ArrayList<String> eventFilters = new ArrayList<>();
@@ -73,7 +74,7 @@ public class Subscription {
 
 	public String notify(String message, String encryptionKey) {
 		Security.addProvider(new BouncyCastleProvider());
-		System.out.println(message);
+		// System.out.println(message);
 		byte[] key = Base64.decode(encryptionKey);
 		SecretKeySpec skeySpec = new SecretKeySpec(key, "AES");
 		byte[] data = Base64.decode(message);
