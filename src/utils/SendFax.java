@@ -37,9 +37,12 @@ public class SendFax {
 				.addPart(body)
 				.addFormDataPart("image", file.getName(),
 						RequestBody.create(faxContentType, file)).build();
+		
+
 
 		APIResponse response = platform.sendRequest("post",
 				"/restapi/v1.0/account/~/extension/~/fax", requestBody, null);
+		
 		return response;
 
 	}

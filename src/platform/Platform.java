@@ -43,23 +43,18 @@ public class Platform {
 	}
 
 	protected final int ACCESS_TOKEN_TTL = 3600;
-	protected String accessToken;
-
+	//protected String accessToken;
 	protected String appKey;
-
 	protected String appSecret;
 	protected Auth auth;
-	StackTraceElement l = new Exception().getStackTrace()[0];
-
 	protected final int REFRESH_TOKEN_TTL = 604800;
-
 	Request request;
 	Response response;
-
 	final String REVOKE_ENDPOINT_URL = "/restapi/oauth/revoke";
 	protected Server server;
-
 	final String TOKEN_ENDPOINT_URL = "/restapi/oauth/token";
+
+	StackTraceElement l = new Exception().getStackTrace()[0];
 
 	public Platform(String appKey, String appSecret, Server server) {
 		super();
@@ -68,19 +63,29 @@ public class Platform {
 		this.server = server;
 		this.auth = new Auth();
 	}
+	
+	/*
+	 * 
+	 * creates base64encoded url
+	 */
 
 	public String apiKey() {
 		return Credentials.basic(appKey, appSecret);
 	}
 
+	
+	/*
+	 * 
+	 * Creates auth calls
+	 */
 	public Response authCall(String endpoint, HashMap<String, String> body) {
 
 		String URL = server.value + endpoint;
 		OkHttpClient client = new OkHttpClient();
 
 		HashMap<String, String> headers = new HashMap<String, String>();
-		headers.put(HttpHeaders.AUTHORIZATION, apiKey());
-		headers.put(HttpHeaders.CONTENT_TYPE,
+		headers.put("Authorization", apiKey());
+		headers.put("Content-Type",
 				ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString());
 
 		
@@ -97,11 +102,21 @@ public class Platform {
 		}
 		return response;
 	}
+	
+	/*
+	 * 
+	 * creat auth header bearer <accesstoken>
+	 */
 
 	protected String authHeader() {
 		return this.auth.tokenType() + " " + this.getAccessToken();
 	}
 
+	
+	/*
+	 * 
+	 * checks auth data
+	 */
 	protected boolean ensureAuthentication() throws IOException {
 		if (!this.auth.accessTokenValid()) {
 			this.refresh();
@@ -110,6 +125,10 @@ public class Platform {
 			return true;
 	}
 
+	/*
+	 * 
+	 * creats form-xurl body
+	 */
 	RequestBody formBody(HashMap<String, String> body) {
 		FormEncodingBuilder formBody = new FormEncodingBuilder();
 		for (HashMap.Entry<String, String> entry : body.entrySet()) {
@@ -118,23 +137,42 @@ public class Platform {
 		return formBody.build();
 	}
 
+	
+	/*
+	 * 
+	 * get access token
+	 */
 	public String getAccessToken() {
 		return auth.accessToken();
 	}
 
+	/*
+	 * 
+	 * gets Auth Obj
+	 */
 	public Auth getAuth() {
 		return auth;
 	}
 
+	
+	/*
+	 * 
+	 * checks login session
+	 */
 	public boolean loggedIn() throws Exception {
 
 		try {
-			return this.auth.accessTokenValid()
-					|| this.refresh().isSuccessful();
+			return this.auth.accessTokenValid();
+					//|| this.refresh().isSuccessful();
 		} catch (Exception e) {
 			throw e;
 		}
 	}
+	
+	/*
+	 * 
+	 * Login code to call auth
+	 */
 
 	public Response login(String userName, String extension, String password) {
 
@@ -147,6 +185,9 @@ public class Platform {
 		return authCall(TOKEN_ENDPOINT_URL, body);
 	}
 
+	/*
+	 * Logout the current session
+	 */
 	public void logout() {
 		HashMap<String, String> body = new HashMap<String, String>();
 		body.put("access_token", this.getAccessToken());
@@ -154,6 +195,11 @@ public class Platform {
 		this.auth.reset();
 	}
 
+	
+	/*
+	 * refresh the access token and refresh token
+	 * 
+	 */
 	public Response refresh() throws IOException {
 		if (!this.auth.refreshTokenValid()) {
 				throw new IOException("Refresh Token Expired");
@@ -161,9 +207,16 @@ public class Platform {
 		HashMap<String, String> body = new HashMap<String, String>();
 		body.put("grant_type", "refresh_token");
 		body.put("refresh_token", this.auth.getRefreshToken());
+		
+		
 		return authCall(TOKEN_ENDPOINT_URL, body);
 	}
 
+	
+	/*
+	 * 
+	 * Header Builder
+	 */
 	protected Builder requestBuilder(HashMap<String, String> hm) throws IOException {
 
 		if (hm == null) {
@@ -212,6 +265,11 @@ public class Platform {
 		return null;
 
 	}
+	
+	/*
+	 * 
+	 * sets auth call response
+	 */
 
 	protected void setAuth(Response response) throws IOException {
 
