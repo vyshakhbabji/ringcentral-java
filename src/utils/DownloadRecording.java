@@ -1,6 +1,6 @@
 package utils;
 
-import http.APIResponse;
+import http.ApiResponse;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -16,6 +16,8 @@ import java.util.Map.Entry;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import com.squareup.okhttp.Response;
 
 import platform.Platform;
 
@@ -88,10 +90,10 @@ public class DownloadRecording {
 			Entry<String, String> pair = it.next();
 			String filename = pair.getKey().toString();
 			String url = pair.getValue().toString();
-			APIResponse response = platform.sendRequest("get", url, null, null);
+			Response response = platform.sendRequest("get", url, null, null);
 
 			System.out.println("CONTENT  TYPE IS: "
-					+ response.responseHeaders());
+					+ response.headers());
 
 			write(response.body().bytes(), filename);
 			Thread.sleep(8000);

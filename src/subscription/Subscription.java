@@ -1,6 +1,6 @@
 package subscription;
 
-import http.APIResponse;
+import http.ApiResponse;
 
 import java.io.IOException;
 import java.security.Security;
@@ -19,6 +19,7 @@ import platform.Platform;
 
 import com.pubnub.api.Callback;
 import com.pubnub.api.Pubnub;
+import com.squareup.okhttp.Response;
 
 public class Subscription {
 
@@ -95,7 +96,7 @@ public class Subscription {
 
 		System.out.println("Subscription ID: " + subscription.id);
 		String url = SUBSCRIPTION_END_POINT + subscription.id;
-		APIResponse r = platform.sendRequest("delete", url, null, null);
+		Response r = platform.sendRequest("delete", url, null, null);
 		System.out.println(r.body().string());
 		this.unsubscribe();
 	}

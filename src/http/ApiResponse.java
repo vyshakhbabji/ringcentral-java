@@ -13,12 +13,12 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.ResponseBody;
 
-public class APIResponse {
+public class ApiResponse {
 
 	protected Request request;
 	protected Response response;
 
-	public APIResponse(Response response) {
+	public ApiResponse(Response response) {
 		this.request = response.request();
 		this.response = response;
 	}

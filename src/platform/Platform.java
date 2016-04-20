@@ -1,11 +1,19 @@
 package platform;
 
-import http.APIResponse;
+import http.ApiException;
+import http.ApiResponse;
+import http.Client;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashMap;
+import java.util.Queue;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.http.HttpHeaders;
 
@@ -25,268 +33,225 @@ public class Platform {
 	public enum ContentTypeSelection {
 		FORM_TYPE_MARKDOWN("application/x-www-form-urlencoded"), JSON_TYPE_MARKDOWN(
 				"application/json"), MULTIPART_TYPE_MARKDOWN("multipart/mixed;");
-		public MediaType value;
+		protected MediaType value;
 
 		private ContentTypeSelection(String contentType) {
 			this.value = MediaType.parse(contentType);
 		}
 	}
+	
+	private static final String USER_AGENT = "JAVA "
+			+ System.getProperty("java.version") + "/RCJAVASDK";
+	
+	static double getVersion() {
+		String version = System.getProperty("java.version");
+		int pos = version.indexOf('.');
+		pos = version.indexOf('.', pos + 1);
+		return Double.parseDouble(version.substring(0, pos));
+	}
 
 	public enum Server {
 		PRODUCTION("https://platform.ringcentral.com"), SANDBOX(
-				"https://platform.devtest.ringcentral.com");
+				"https://api.devtest.ringcentral.com");
 		private String value;
 
-		private Server(String url) {
+		Server(String url) {
 			this.value = url;
 		}
 	}
 
 	protected final int ACCESS_TOKEN_TTL = 3600;
-	//protected String accessToken;
 	protected String appKey;
 	protected String appSecret;
 	protected Auth auth;
+	protected Client client;
+	private Object lock = new Object();
 	protected final int REFRESH_TOKEN_TTL = 604800;
-	Request request;
+	protected Request request;
 	Response response;
+	String account = "~";
+	
+	
 	final String REVOKE_ENDPOINT_URL = "/restapi/oauth/revoke";
+
 	protected Server server;
+
 	final String TOKEN_ENDPOINT_URL = "/restapi/oauth/token";
 
-	StackTraceElement l = new Exception().getStackTrace()[0];
-
-	public Platform(String appKey, String appSecret, Server server) {
+	public Platform(Client client, String appKey, String appSecret,
+			Server server) {
 		super();
 		this.appKey = appKey;
 		this.appSecret = appSecret;
 		this.server = server;
 		this.auth = new Auth();
+		this.client = client;
 	}
-	
-	/*
-	 * 
-	 * creates base64encoded url
-	 */
 
 	public String apiKey() {
 		return Credentials.basic(appKey, appSecret);
 	}
 
-	
-	/*
-	 * 
-	 * Creates auth calls
-	 */
-	public Response authCall(String endpoint, HashMap<String, String> body) {
-
-		String URL = server.value + endpoint;
-		OkHttpClient client = new OkHttpClient();
-
-		HashMap<String, String> headers = new HashMap<String, String>();
-		headers.put("Authorization", apiKey());
-		headers.put("Content-Type",
-				ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString());
-
-		
-
-		try {
-			request = requestBuilder(headers).url(URL).post(formBody(body)).build();
-			response = client.newCall(request).execute();
-			if (response.isSuccessful() && endpoint.equals(TOKEN_ENDPOINT_URL)) {
-				setAuth(response);
-			} else
-				System.err.println("Authorization not successful");
-		} catch (IOException e) {
-				System.err.println(e.getStackTrace());
-		}
-		return response;
-	}
-	
-	/*
-	 * 
-	 * creat auth header bearer <accesstoken>
-	 */
-
-	protected String authHeader() {
-		return this.auth.tokenType() + " " + this.getAccessToken();
-	}
-
-	
-	/*
-	 * 
-	 * checks auth data
-	 */
-	protected boolean ensureAuthentication() throws IOException {
-		if (!this.auth.accessTokenValid()) {
-			this.refresh();
-			return false;
-		} else
-			return true;
-	}
-
-	/*
-	 * 
-	 * creats form-xurl body
-	 */
-	RequestBody formBody(HashMap<String, String> body) {
-		FormEncodingBuilder formBody = new FormEncodingBuilder();
-		for (HashMap.Entry<String, String> entry : body.entrySet()) {
-			formBody.add(entry.getKey(), entry.getValue());
-		}
-		return formBody.build();
-	}
-
-	
-	/*
-	 * 
-	 * get access token
-	 */
-	public String getAccessToken() {
-		return auth.accessToken();
-	}
-
-	/*
-	 * 
-	 * gets Auth Obj
-	 */
-	public Auth getAuth() {
+	public Auth auth() {
 		return auth;
 	}
 
-	
-	/*
-	 * 
-	 * checks login session
-	 */
-	public boolean loggedIn() throws Exception {
+	protected String authHeader() {
+		return this.auth.tokenType() + " " + this.auth.access_token;
+	}
 
-		try {
-			return this.auth.accessTokenValid();
-					//|| this.refresh().isSuccessful();
-		} catch (Exception e) {
-			throw e;
+	protected boolean ensureAuthentication() {
+
+		if (this.auth.accessTokenValid()) {
+			return true;
+		} else {
+			synchronized (lock) {
+				try {
+					this.refresh();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+			}
+			return true;
 		}
 	}
-	
-	/*
-	 * 
-	 * Login code to call auth
-	 */
 
-	public Response login(String userName, String extension, String password) {
-
-		HashMap<String, String> body = new HashMap<String, String>();
-		body.put("username", userName);
-		body.put("password", password);
-		body.put("extension", extension);
-		body.put("grant_type", "password");
-
-		return authCall(TOKEN_ENDPOINT_URL, body);
+	protected RequestBody formBody(HashMap<String, String> body) {
+		FormEncodingBuilder formBody = new FormEncodingBuilder();
+		for (HashMap.Entry<String, String> entry : body.entrySet())
+			formBody.add(entry.getKey(), entry.getValue());
+		return formBody.build();
 	}
 
-	/*
-	 * Logout the current session
-	 */
-	public void logout() {
-		HashMap<String, String> body = new HashMap<String, String>();
-		body.put("access_token", this.getAccessToken());
-		this.authCall(REVOKE_ENDPOINT_URL, body);
-		this.auth.reset();
-	}
-
-	
-	/*
-	 * refresh the access token and refresh token
-	 * 
-	 */
-	public Response refresh() throws IOException {
-		if (!this.auth.refreshTokenValid()) {
-				throw new IOException("Refresh Token Expired");
-		}
-		HashMap<String, String> body = new HashMap<String, String>();
-		body.put("grant_type", "refresh_token");
-		body.put("refresh_token", this.auth.getRefreshToken());
-		
-		
-		return authCall(TOKEN_ENDPOINT_URL, body);
-	}
-
-	
-	/*
-	 * 
-	 * Header Builder
-	 */
-	protected Builder requestBuilder(HashMap<String, String> hm) throws IOException {
-
+	public Builder inflateRequest(HashMap<String, String> hm) {
+		// add user-agent
 		if (hm == null) {
 			hm = new HashMap<String, String>();
 			if (ensureAuthentication())
 				hm.put("Authorization", authHeader());
 		}
 		Builder requestBuilder = new Request.Builder();
-		for (Entry<String, String> entry : hm.entrySet()) {
+		for (Entry<String, String> entry : hm.entrySet())
 			requestBuilder.addHeader(entry.getKey(), entry.getValue());
-		}
+		
+		 requestBuilder.addHeader("User-Agent", USER_AGENT);
+		
 		return requestBuilder;
 	}
 
-	public APIResponse sendRequest(String method, String apiURL,
-			RequestBody body, HashMap<String, String> headerMap) {
-
-
-
-		try {
-			ensureAuthentication();
-			String URL = server.value + apiURL;
-			OkHttpClient client = new OkHttpClient();
-			if (method.equalsIgnoreCase("get")) {
-				request = requestBuilder(headerMap).url(URL).build();
-			} else if (method.equalsIgnoreCase("delete")) {
-				request = requestBuilder(headerMap).url(URL).delete().build();
-			} else {
-				if (method.equalsIgnoreCase("post")) {
-					request = requestBuilder(headerMap).url(URL).post(body)
-							.build();
-				} else if (method.equalsIgnoreCase("put")) {
-					request = requestBuilder(headerMap).url(URL).put(body)
-							.build();
-				}
-			}
-			response = client.newCall(request).execute();
-			return new APIResponse(response);
-
-		} catch (Exception e) {
-			System.err.print("Failed APICall. Exception occured in Class:"
-					+ this.getClass().getName() + "\n" + e.getMessage()
-					+ l.getClassName() + "/" + l.getMethodName() + ":"
-					+ l.getLineNumber());
-		}
-		return null;
-
-	}
-	
-	/*
-	 * 
-	 * sets auth call response
-	 */
-
-	protected void setAuth(Response response) throws IOException {
-
-		String result = response.body().string();
-		HashMap<String, String> data = new HashMap<String, String>();
-		try {
+	public HashMap<String, String> jsonToHashMap() throws IOException {
+		if (response.isSuccessful()) {
 			Gson gson = new Gson();
 			Type HashMapType = new TypeToken<HashMap<String, String>>() {
 			}.getType();
-			data = gson.fromJson(result, HashMapType);
-			this.auth.setData(data);
-		} catch (Exception e) {
-			throw new IOException(
-					"Failed Authorization. Exception occured in Class:  "
-							+ this.getClass().getName() + ": " +e.getStackTrace());
+			String responseString = response.body().string();
+			System.out.println(responseString);
+			return gson.fromJson(responseString, HashMapType);
+		} else {
+			System.out.println("Error Message: " + "HTTP Status Code "
+					+ response.code() + " " + response.message() +"/n"+response.body().string());
+			return new HashMap<>();
 		}
-		
+	}
+
+	public boolean loggedIn() throws Exception {
+		return this.auth.accessTokenValid();
+	}
+
+	public Response login(String userName, String extension, String password)
+			throws IOException {
+
+		HashMap<String, String> body = new HashMap<String, String>();
+		body.put("username", userName);
+		body.put("password", password);
+		body.put("extension", extension);
+		body.put("grant_type", "password");
+	
+		this.response = requestToken(TOKEN_ENDPOINT_URL, body);
+		return response;
+	}
+
+	public Response logout() throws IOException {
+		HashMap<String, String> body = new HashMap<String, String>();
+		body.put("access_token", this.auth.access_token);
+		this.response = requestToken(REVOKE_ENDPOINT_URL, body);
+		this.auth.reset();
+		return response;
+	}
+
+	public Response refresh() throws Exception {
+
+		if (!this.auth.refreshTokenValid()) {
+			throw new IOException("Refresh Token has Expired");
+		} else {
+			HashMap<String, String> body = new HashMap<String, String>();
+			body.put("grant_type", "refresh_token");
+			body.put("refresh_token", this.auth.refreshToken());
+			return requestToken(TOKEN_ENDPOINT_URL, body);
+		}
+
+	}
+
+
+	
+
+
+	protected Response requestToken(String endpoint,
+			HashMap<String, String> body) throws IOException {
+
+		final String URL = server.value + endpoint;
+		HashMap<String, String> headers = new HashMap<String, String>();
+		headers.put("Authorization", apiKey());
+		headers.put("Content-Type",
+				ContentTypeSelection.FORM_TYPE_MARKDOWN.value.toString());
+		request = inflateRequest(headers).url(URL).post(formBody(body)).build();
+		this.response = client.loadResponse(request);
+		setAuth();
+		return response;
+
+	}
+	
+	
+	
+	public String apiURL(String url){
+        String builtUrl = "";
+        boolean has_http = url.contains("http://") || url.contains("https://");
+        if(!has_http){
+            builtUrl += server.value;
+        }
+        if(!(url.contains("/restapi")) && !has_http){
+            builtUrl += "/restapi" + "/" + "v1.0";
+        }
+        if(url.contains("/account/")){
+            builtUrl = builtUrl.replace("/account/" + "~", "/account/" + this.account);
+        }
+        builtUrl += url;
+        System.out.println("BUILDING URL CHECK: "+builtUrl);
+        return builtUrl;
+    }
+
+	
+	
+
+	public Response sendRequest(String method, String apiURL, RequestBody body,
+			HashMap<String, String> headerMap) {
+		final String URL = apiURL(apiURL);
+		try {
+			ensureAuthentication();
+			request = client.createRequest(method, URL, body,
+					inflateRequest(headerMap));
+			response = client.loadResponse(request);
+		} catch (Exception e) {
+			System.err.print("Failed APICall. Exception occured in Class:"
+					+ this.getClass().getName() + "\n");
+			e.printStackTrace();
+		}
+		return response;
+	}
+
+	public void setAuth() throws IOException {
+		this.auth.setData(jsonToHashMap());
 	}
 
 }

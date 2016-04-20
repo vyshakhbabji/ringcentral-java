@@ -22,39 +22,23 @@ package core;
  * THE SOFTWARE.
  */
 
-import http.Client;
-import platform.Platform;
+/**
+ * This is a RingCentral Generic Exception Class
+ */
+public class RingCentralException extends RuntimeException {
 
-public class SDK {
+	private static final long serialVersionUID = 1L;
 
-	Client client;
-	Platform platform;
-
-	/**
-	 * Initialize the SDK and Platfrom object using appKey appSecret and server
-	 * endpoint
-	 *
-	 * @param appKey
-	 *            This is the application key
-	 * @param appSecret
-	 *            This is application secret
-	 * @param server
-	 *            This is the server endpoint. Server endpoint can be set to
-	 *            SANDBOX or PRODUCTION i.e Platform.Server.SANDBOX or
-	 *            Platform.Server.PRODUCTION
-	 */
-	public SDK(String appKey, String appSecret, Platform.Server server) {
-
-		this.client = new Client();
-		this.platform = new Platform(client, appKey, appSecret, server);
+	public RingCentralException(String message) {
+		super(message);
 	}
 
-	/**
-	 * Returns platform object
-	 *
-	 * @return platfrom object
-	 */
-	public Platform platform() {
-		return this.platform;
+	public RingCentralException(String message, Throwable t) {
+		super(message, t);
 	}
+
+	public RingCentralException(Throwable t) {
+		super(t);
+	}
+
 }
