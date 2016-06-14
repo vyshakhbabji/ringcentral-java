@@ -23,7 +23,7 @@ In order to bootstrap the RingCentral JavaScript SDK, you have to first get a re
 
 ```java
 
-	SDK sdk = new SDK(`appKey`, `appSecret`,`Server.SANDBOX` or `Server.Production`);
+	SDK sdk = new SDK(`appKey`, `appSecret`,`Server.SANDBOX` or `Server.PRODUCTION`);
 
 ```
 
