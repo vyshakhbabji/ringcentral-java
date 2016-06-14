@@ -23,7 +23,7 @@ In order to bootstrap the RingCentral JavaScript SDK, you have to first get a re
 
 ```java
 
-	SDK sdk = new SDK("`appKey`", "`appSecret`",`Server.SANDBOX` or `Server.Production`);
+	SDK sdk = new SDK(`appKey`, `appSecret`,`Server.SANDBOX` or `Server.Production`);
 
 ```
 
@@ -35,7 +35,7 @@ Now that you have your platform singleton and SDK has been configured with the c
 		
 		Platform platform = sdk.platform();
 		try {
-			Response r = platform.login("`rcPhoneNumber`", "`extension`", "`password`");
+			Response r = platform.login(`rcPhoneNumber`, `extension`, `password`);
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
