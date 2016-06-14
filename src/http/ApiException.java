@@ -55,6 +55,10 @@ public class ApiException extends RingCentralException {
 		this.extraInfo = response.error();
 	}
 
+	public ApiException(Exception cause) {
+		super(null, cause);
+	}
+
 	public ApiException(Response response) {
 		super((String) null);
 	}
@@ -67,10 +71,6 @@ public class ApiException extends RingCentralException {
 	public ApiException(String errorMessage, Exception cause) {
 		super(null, cause);
 		this.errorMessage = errorMessage;
-	}
-	
-	public ApiException( Exception cause) {
-		super(null, cause);
 	}
 
 	public String getErrorCode() {

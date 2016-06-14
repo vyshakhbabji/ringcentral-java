@@ -1,28 +1,39 @@
 package platform;
 
-import http.ApiException;
-import http.ApiResponse;
+/*
+ * Copyright (c) 2015 RingCentral, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 import http.Client;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashMap;
-import java.util.Queue;
 import java.util.Map.Entry;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import org.apache.http.HttpHeaders;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.squareup.okhttp.Credentials;
 import com.squareup.okhttp.FormEncodingBuilder;
 import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Request.Builder;
 import com.squareup.okhttp.RequestBody;
@@ -39,20 +50,10 @@ public class Platform {
 			this.value = MediaType.parse(contentType);
 		}
 	}
-	
-	private static final String USER_AGENT = "JAVA "
-			+ System.getProperty("java.version") + "/RCJAVASDK";
-	
-	static double getVersion() {
-		String version = System.getProperty("java.version");
-		int pos = version.indexOf('.');
-		pos = version.indexOf('.', pos + 1);
-		return Double.parseDouble(version.substring(0, pos));
-	}
 
 	public enum Server {
 		PRODUCTION("https://platform.ringcentral.com"), SANDBOX(
-				"https://api.devtest.ringcentral.com");
+				"https://platform.devtest.ringcentral.com");
 		private String value;
 
 		Server(String url) {
@@ -60,7 +61,18 @@ public class Platform {
 		}
 	}
 
+	private static final String USER_AGENT = "JAVA "
+			+ System.getProperty("java.version") + "/RCJAVASDK";
+
+	static double getVersion() {
+		String version = System.getProperty("java.version");
+		int pos = version.indexOf('.');
+		pos = version.indexOf('.', pos + 1);
+		return Double.parseDouble(version.substring(0, pos));
+	}
+
 	protected final int ACCESS_TOKEN_TTL = 3600;
+	String account = "~";
 	protected String appKey;
 	protected String appSecret;
 	protected Auth auth;
@@ -69,9 +81,7 @@ public class Platform {
 	protected final int REFRESH_TOKEN_TTL = 604800;
 	protected Request request;
 	Response response;
-	String account = "~";
-	
-	
+
 	final String REVOKE_ENDPOINT_URL = "/restapi/oauth/revoke";
 
 	protected Server server;
@@ -90,6 +100,24 @@ public class Platform {
 
 	public String apiKey() {
 		return Credentials.basic(appKey, appSecret);
+	}
+
+	public String apiURL(String url) {
+		String builtUrl = "";
+		boolean has_http = url.contains("http://") || url.contains("https://");
+		if (!has_http) {
+			builtUrl += server.value;
+		}
+		if (!(url.contains("/restapi")) && !has_http) {
+			builtUrl += "/restapi" + "/" + "v1.0";
+		}
+		if (url.contains("/account/")) {
+			builtUrl = builtUrl.replace("/account/" + "~", "/account/"
+					+ this.account);
+		}
+		builtUrl += url;
+		System.out.println("BUILDING URL CHECK: " + builtUrl);
+		return builtUrl;
 	}
 
 	public Auth auth() {
@@ -134,9 +162,9 @@ public class Platform {
 		Builder requestBuilder = new Request.Builder();
 		for (Entry<String, String> entry : hm.entrySet())
 			requestBuilder.addHeader(entry.getKey(), entry.getValue());
-		
-		 requestBuilder.addHeader("User-Agent", USER_AGENT);
-		
+
+		requestBuilder.addHeader("User-Agent", USER_AGENT);
+
 		return requestBuilder;
 	}
 
@@ -150,7 +178,8 @@ public class Platform {
 			return gson.fromJson(responseString, HashMapType);
 		} else {
 			System.out.println("Error Message: " + "HTTP Status Code "
-					+ response.code() + " " + response.message() +"/n"+response.body().string());
+					+ response.code() + " " + response.message() + "/n"
+					+ response.body().string());
 			return new HashMap<>();
 		}
 	}
@@ -167,7 +196,7 @@ public class Platform {
 		body.put("password", password);
 		body.put("extension", extension);
 		body.put("grant_type", "password");
-	
+
 		this.response = requestToken(TOKEN_ENDPOINT_URL, body);
 		return response;
 	}
@@ -193,10 +222,6 @@ public class Platform {
 
 	}
 
-
-	
-
-
 	protected Response requestToken(String endpoint,
 			HashMap<String, String> body) throws IOException {
 
@@ -211,28 +236,6 @@ public class Platform {
 		return response;
 
 	}
-	
-	
-	
-	public String apiURL(String url){
-        String builtUrl = "";
-        boolean has_http = url.contains("http://") || url.contains("https://");
-        if(!has_http){
-            builtUrl += server.value;
-        }
-        if(!(url.contains("/restapi")) && !has_http){
-            builtUrl += "/restapi" + "/" + "v1.0";
-        }
-        if(url.contains("/account/")){
-            builtUrl = builtUrl.replace("/account/" + "~", "/account/" + this.account);
-        }
-        builtUrl += url;
-        System.out.println("BUILDING URL CHECK: "+builtUrl);
-        return builtUrl;
-    }
-
-	
-	
 
 	public Response sendRequest(String method, String apiURL, RequestBody body,
 			HashMap<String, String> headerMap) {
