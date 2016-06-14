@@ -186,7 +186,7 @@ public class Subscription {
 		}, this.expiresIn - 60, this.expiresIn - 30, TimeUnit.SECONDS);
 	}
 
-	private void reset() {
+	public void reset() {
 		exec.shutdown();
 		if (this.isSubscribed())
 			this.unsubscribe();
