@@ -116,6 +116,10 @@ To revert subscription instance to it's persistant state you can use its reset()
 
 ```
 
+### Send Fax
+
+Please see this code  [here](https://github.com/vyshakhbabji/ringcentral-java/blob/master/src/utils/SendFax.java)
+
 ### To Do
 
 ---
