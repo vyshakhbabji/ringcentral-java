@@ -32,7 +32,7 @@ public class Subscribe {
 	void subscribe(Platform p) {
 		final Subscription sub = new Subscription(p);
 
-		String[] s = { "/restapi/v1.0/account/~/extension/~/presence",
+		String[] s = { "/restapi/v1.0/account/~/extension/~/presence?detailedTelephonyState=true",
 				"/restapi/v1.0/account/~/extension/~/message-store" };
 
 		sub.addEvents(s);

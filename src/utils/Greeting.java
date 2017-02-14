@@ -1,3 +1,4 @@
+
 package utils;
 
 /*
@@ -32,30 +33,21 @@ import com.squareup.okhttp.MultipartBuilder;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
 
-public class SendFax {
+public class Greeting {
 
-	File file =new File(
-			"/Users/vyshakh.babji/Desktop/1.pdf");
+	File file =  new File(
+			"/Users/vyshakh.babji/Desktop/file.wav");
 	Platform platform;
 
-	public SendFax(Platform platform, File file) {
+	public Greeting(Platform platform) {
 		this.platform = platform;
-		this.file = file;
+//		this.file = file;
 	}
-	
-	public SendFax(Platform platform) {
-		this.platform = platform;
-	}
-	
-	public SendFax() {
-		
-	}
-	
 
-	public Response createFax(String filename, String toNumber,
-			String faxResolution, MediaType faxContentType) throws IOException {
+	public Response createGreeting( MediaType faxContentType) throws IOException {
 
-		String payload = "{\"to\":[{\"phoneNumber\":\"\"}]}";
+//		String payload = "{\r\n \"type\": \"Announcement\",\r\n \"answeringRule\": { \"id\": \"business-hours-rule\" }\r\n }";
+		String payload = "{\r\n \"type\": \"ConnectingAudio\",\r\n \"answeringRule\": { \"id\": \"29514005\" }\r\n }";
 
 		System.out.println("Payload :" + payload);
 
@@ -66,29 +58,30 @@ public class SendFax {
 				.addPart(body)
 				.addFormDataPart("image", file.getName(),
 						RequestBody.create(faxContentType, file)).build();
+		
 
 		Response response = platform.sendRequest("post",
-				"/restapi/v1.0/account/~/extension/~/fax", requestBody, null);
-		
-		System.out.println(response.request().headers());
+			"/restapi/v1.0/account/~/extension/~/greeting", requestBody, null);
 
 		return response;
 
 	}
 
 	void send() {
-//		SendFax fax = new SendFax(null, new File(
-//				"/Users/vyshakh.babji/Desktop/1.pdf"));
-		SendFax fax = new SendFax(platform);
+		Greeting fax = new Greeting(platform);
 
 		try {
 
-			Response response = fax.createFax("hi.pdf", "", "high",
-					MediaType.parse("application/pdf"));
+			Response response = fax.createGreeting(MediaType.parse("audio/wav"));
+			
+			
+			System.out.println(response.request().headers());
 
-//			 System.out.println(response());
-//			 System.out.println(response.headers());
-//			System.out.println(response.body().string());
+			System.out.println(response.code());
+			
+			// System.out.println(response.());
+			// System.out.println(response.headers());
+			System.out.println(response.body().string());
 
 		} catch (IOException e) {
 

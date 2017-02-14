@@ -42,7 +42,11 @@ import org.json.JSONObject;
 import platform.Platform;
 import subscription.SubscriptionPayload.DeliveryMode;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.GsonBuilder;
+//import com.pubnub.api.Pubnub;
 import com.pubnub.api.Pubnub;
 import com.pubnub.api.PubnubError;
 import com.pubnub.api.PubnubException;
@@ -62,6 +66,8 @@ public class Subscription {
 		public String subscriberKey = "";
 		public String transportType = "Pubnub";
 	}
+
+	ObjectMapper mapper = new ObjectMapper();
 
 	String creationTime = "";
 	public IDeliveryMode deliveryMode = new IDeliveryMode();
@@ -110,7 +116,7 @@ public class Subscription {
 		return decryptedString;
 	}
 
-	private ArrayList<String> getFullEventFilters() {
+	public ArrayList<String> getFullEventFilters() {
 		return this.eventFilters;
 	}
 
@@ -196,14 +202,20 @@ public class Subscription {
 		this.eventFilters = new ArrayList<String>(Arrays.asList(events));
 	}
 
-	public void subscribe() throws IOException {
+
+	public Response createSubscription(){
 		SubscriptionPayload subscriptionPayload = new SubscriptionPayload(
 				subscription.getFullEventFilters().toArray(new String[0]),
 				new DeliveryMode("PubNub", "false"));
 		String payload = new GsonBuilder().create().toJson(subscriptionPayload);
 		RequestBody body = RequestBody.create(MediaType
 				.parse("application/json"), payload.toString().getBytes());
-		Response r = platform.sendRequest("post", SUBSCRIPTION_URL, body, null);
+		return platform.sendRequest("post", SUBSCRIPTION_URL, body, null);
+	}
+
+	public void subscribe() throws IOException {
+
+		Response r = createSubscription();
 
 		if (r.isSuccessful()) {
 			String responseBody = r.body().string();
@@ -225,46 +237,60 @@ public class Subscription {
 		try {
 			pubnubObj.subscribe(deliveryMode.address,
 					new com.pubnub.api.Callback() {
-						@Override
-						public void connectCallback(String channel,
-								Object message) {
-							System.out.println(channel + " : "
-									+ message.toString());
+				@Override
+				public void connectCallback(String channel,
+						Object message) {
+					System.out.println(channel + " : "
+							+ message.toString());
 
-						}
+				}
 
-						@Override
-						public void disconnectCallback(String channel,
-								Object message) {
-							System.out.println("Disconnect" + channel + " : "
-									+ message.toString());
-						}
+				@Override
+				public void disconnectCallback(String channel,
+						Object message) {
+					System.out.println("Disconnect" + channel + " : "
+							+ message.toString());
+				}
 
-						@Override
-						public void errorCallback(String channel,
-								PubnubError error) {
-							System.out.println("Error " + channel + " : "
-									+ error.getErrorString());
-						}
+				@Override
+				public void errorCallback(String channel,
+						PubnubError error) {
+					System.out.println("Error " + channel + " : "
+							+ error.getErrorString());
+				}
 
-						@Override
-						public void reconnectCallback(String channel,
-								Object message) {
-							System.out.println(" Reconnect " + channel + " : "
-									+ message.toString());
-						}
+				@Override
+				public void reconnectCallback(String channel,
+						Object message) {
+					System.out.println(" Reconnect " + channel + " : "
+							+ message.toString());
+				}
 
-						@Override
-						public void successCallback(String channel,
-								Object message) {
-							String decryptedString = subscription
-									.decrypt(message.toString());
+				@Override
+				public void successCallback(String channel,
+						Object message) {
+					String decryptedString = subscription
+							.decrypt(message.toString());
 
-							System.out.println("SUCCESS: " + decryptedString
-									+ " , " + channel);
-
-						}
-					});
+					try {
+						Object json = mapper.readValue(decryptedString, Object.class);
+						String indented = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+						System.out.println("SUCCESS: " + indented
+								+ " , " + channel);
+						System.out.println("SUCCESS: " + decryptedString
+								+ " , " + channel);
+					} catch (JsonParseException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (JsonMappingException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			});
 		} catch (PubnubException e) {
 			throw new RingCentralException(e);
 		}

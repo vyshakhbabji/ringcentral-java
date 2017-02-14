@@ -52,8 +52,9 @@ public class Platform {
 	}
 
 	public enum Server {
-		PRODUCTION("https://platform.ringcentral.com"), SANDBOX(
-				"https://platform.devtest.ringcentral.com");
+		PRODUCTION("https://platform.ringcentral.com"),
+		SANDBOX("https://platform.devtest.ringcentral.com")
+		;
 		private String value;
 
 		Server(String url) {
@@ -196,6 +197,7 @@ public class Platform {
 		body.put("password", password);
 		body.put("extension", extension);
 		body.put("grant_type", "password");
+//		body.put("refresh_token_ttl", "0");
 
 		this.response = requestToken(TOKEN_ENDPOINT_URL, body);
 		return response;

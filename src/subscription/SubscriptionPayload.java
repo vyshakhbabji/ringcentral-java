@@ -1,5 +1,7 @@
 package subscription;
 
+import java.net.URL;
+
 /*
  * Copyright (c) 2015 RingCentral, Inc.
  *
@@ -24,12 +26,18 @@ package subscription;
 
 public final class SubscriptionPayload {
 	public static final class DeliveryMode {
-		public final String encryption;
-		public final String transportType;
+		public  String encryption;
+		public  String transportType;
+		public  String address;
 
 		public DeliveryMode(String transportType, String encryption) {
 			this.transportType = transportType;
 			this.encryption = encryption;
+		}
+		
+		public DeliveryMode(String transportType, URL address) {
+			this.transportType = transportType;
+			this.address = address.toString();
 		}
 	}
 
